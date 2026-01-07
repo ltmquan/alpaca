@@ -58,7 +58,9 @@ library
     import:           warnings
 
     -- Modules exported by the library.
-    exposed-modules:  AST
+    exposed-modules: 
+        AST
+        Parser
 
     -- Modules included in this library but not exported.
     -- other-modules:
@@ -70,7 +72,8 @@ library
     build-depends:    
         base ^>=4.21.0.0
       , megaparsec
-      , text
+      , text 
+      , parser-combinators
 
     -- Directories containing source files.
     hs-source-dirs:   src
@@ -95,7 +98,7 @@ test-suite alpaca-test
     default-language: GHC2024
 
     -- Modules included in this executable, other than Main.
-    -- other-modules:
+    other-modules: ParserTest
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
@@ -113,5 +116,4 @@ test-suite alpaca-test
     build-depends:
         base ^>=4.21.0.0
       , alpaca
-      , megaparsec
-      , text
+      , hspec

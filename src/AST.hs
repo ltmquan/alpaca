@@ -10,114 +10,95 @@ Data types for the AST.
 
 module AST
     ( Id(..)
-    , DataId(..)
     , Program(..)
-    , Decl(..)
-    , Guard(..)
-    , DataCon(..)
+    , Stmt(..)
     , Type(..)
+    , TypeOp(..)
+    , Pat(..)
     , Expr(..)
-    , CaseBranch(..)
     , BinOp(..)
     , UnaryOp(..)
-    , Pat(..)
     , Lit(..)
     ) where
 
 
 -- ============ Identifiers ============
 
-newtype Id = Id String           -- lowercase: variables, type variables
-    deriving (Show, Eq)
-
-newtype DataId = DataId String   -- uppercase: type constructors, data constructors
+newtype Id = Id String
     deriving (Show, Eq)
 
 
 -- ============ Program Structure ============
 
-newtype Program = Program [Decl]
+newtype Program = Program [Stmt]
     deriving (Show, Eq)
 
-data Decl
-    = DType Id Type                        -- id :: type
-    | DFunc Id [Pat] Expr (Maybe [Decl])   -- id pat* = expr [where ...]
-    | DFuncGuarded Id [Pat] [Guard] (Maybe [Decl])  -- id pat* guards [where ...]
-    | DData DataId [Id] [DataCon]          -- data DataId a b = Con1 | Con2
-    deriving (Show, Eq)
-
-data Guard = Guard Expr Expr             -- | cond = expr
-    deriving (Show, Eq)
-
-data DataCon = DataCon DataId [Type]     -- Con type*
+data Stmt
+    = TypeDecl Id Type           -- id :: type
+    | FuncDecl Id [Pat] Expr     -- id pat* = expr
     deriving (Show, Eq)
 
 
 -- ============ Types ============
 
 data Type
-    = TInt                         -- Int
-    | TStr                         -- Str
-    | TBool                        -- Bool
-    | TVar Id                      -- a (type variable, lowercase)
-    | TCon DataId [Type]           -- Maybe a, Either a b (uppercase)
-    | TList Type                   -- [a]
-    | TTuple [Type]                -- (a, b, c)
-    | TFun Type Type               -- a -> b
-    | TUnion Type Type             -- a | b
+    = TLit String                -- Int, Char, Str, Bool
+    | TVar Id                    -- type variable
+    | TList Type                 -- [type]
+    | TTuple [Type]              -- (type, type, ...)
+    | TOp TypeOp Type Type       -- type op type
     deriving (Show, Eq)
 
-
--- ============ Expressions ============
-
-data Expr
-    = EVar Id                      -- x (lowercase)
-    | ECon DataId                  -- Just, Nothing (uppercase)
-    | ELit Lit                     -- 1, "hello", true
-    | EApp Expr Expr               -- f x
-    | EBinOp BinOp Expr Expr       -- a + b
-    | EUnaryOp UnaryOp Expr        -- -a, !a
-    | ETuple [Expr]                -- (a, b, c)
-    | EList [Expr]                 -- [1, 2, 3]
-    | ECase [CaseBranch]           -- { pat -> expr, ... }
-    | ELambda Pat Expr             -- pat :-> expr
-    | ELet Id Expr Expr            -- let x = e1 in e2
-    deriving (Show, Eq)
-
-data CaseBranch = CaseBranch Pat Expr    -- pat -> expr
-    deriving (Show, Eq)
-
-data BinOp
-    = OpOr                         -- ||
-    | OpAnd                        -- &&
-    | OpEq                         -- ==
-    | OpNeq                        -- /=
-    | OpLt                         -- 
-    | OpGt                         -- >
-    | OpLe                         -- <=
-    | OpGe                         -- >=
-    | OpAdd                        -- +
-    | OpSub                        -- -
-    | OpMul                        -- *
-    | OpDiv                        -- /
-    | OpMod                        -- %
-    deriving (Show, Eq)
-
-data UnaryOp
-    = OpNeg                        -- -
-    | OpNot                        -- !
+data TypeOp
+    = TArrow                     -- ->
+    | TUnion                     -- |
     deriving (Show, Eq)
 
 
 -- ============ Patterns ============
 
 data Pat
-    = PVar Id                      -- x (lowercase)
-    | PLit Lit                     -- 1, "hello", true
-    | PWild                        -- _
-    | PCon DataId [Pat]            -- Just x, Nothing (uppercase)
-    | PTuple [Pat]                 -- (a, b, c)
-    | PList [Pat]                  -- [x, y, z]
+    = PVar Id                    -- variable
+    | PLit Lit                   -- literal
+    | PWild                      -- _
+    | PTuple [Pat]               -- (pat, pat, ...)
+    | PList [Pat]                -- [pat, pat, ...]
+    deriving (Show, Eq)
+
+
+-- ============ Expressions ============
+
+data Expr
+    = EVar Id                    -- variable
+    | ELit Lit                   -- literal
+    | EApp Expr Expr             -- function application
+    | EBinOp BinOp Expr Expr     -- binary operation
+    | EUnaryOp UnaryOp Expr      -- unary operation
+    | ETuple [Expr]              -- (expr, expr, ...)
+    | EList [Expr]               -- [expr, expr, ...]
+    deriving (Show, Eq)
+
+data BinOp
+    = OpOr                       -- ||
+    | OpAnd                      -- &&
+    | OpEq                       -- ==
+    | OpNeq                      -- /=
+    | OpLt                       -- <
+    | OpGt                       -- >
+    | OpLe                       -- <=
+    | OpGe                       -- >=
+    | OpAdd                      -- +
+    | OpSub                      -- -
+    | OpMul                      -- *
+    | OpDiv                      -- /
+    | OpConcat                   -- ++
+    | OpCons                     -- :
+    | OpIndex                    -- @
+    deriving (Show, Eq)
+
+data UnaryOp
+    = OpNeg                      -- -
+    | OpNot                      -- !
     deriving (Show, Eq)
 
 
@@ -125,6 +106,7 @@ data Pat
 
 data Lit
     = LInt Integer
+    | LChar Char
     | LStr String
     | LBool Bool
     deriving (Show, Eq)

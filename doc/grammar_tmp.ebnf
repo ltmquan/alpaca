@@ -1,0 +1,77 @@
+(* ============ Program Structure ============ *)
+prog = { stmt } ;
+
+stmt = type_decl | fnc_decl ;
+
+(* ============ Type Declaration ============ *)
+type_decl = id "::" type ;
+
+type = atom_type { type_op atom_type } ;
+
+type_op = "->" | "|" ;
+
+atom_type = 
+    type_lit
+  | type_var
+  | "(" type { "," type } ")"
+  | "[" type "]" ;
+
+(* ============ Function Declarations ============ *)
+fnc_decl = id { pat } "=" expr ;
+
+pat = 
+    id
+  | lit
+  | "_"
+  | "(" pat "," pat { "," pat } ")"
+  | "[" [ pat { "," pat } ] "]" ;
+
+expr = unary_expr { bin_op unary_expr } ;
+
+unary_expr = [ un_op ] app_expr ;
+
+app_expr = atom_expr { atom_expr } ;
+
+atom_expr = id | lit | "(" expr ")" | "[" [ expr { "," expr } ] "]" ;
+
+(* ============ Built-in Operations ============ *)
+bin_op = 
+    "||" | "&&" 
+  | "==" | "/=" | ">" | "<" | ">=" | "<="
+  | "+" | "-" | "*" | "/" 
+  | "++" | ":" | "@" ;
+
+un_op = "-" | "!" ;
+
+(* ============ Literals and Strings ============ *)
+type_lit = "Int" | "Char" | "Str" | "Bool" ;
+
+type_var = lower { alnum | "_" | "'" } ;
+
+lit =
+    int_lit
+  | char_lit
+  | str_lit
+  | bool_lit ;
+
+int_lit = digit { digit } ;
+
+char_lit = "\'" str_char "\'" ;
+
+str_lit = "\"" { str_char } "\"" ;
+
+str_char = ~["\"" | "\\"] | "\\" escape_char ;
+
+escape_char = "n" | "t" | "r" | "\\" | "\"" | "'" ;
+
+bool_lit = "true" | "false" ;
+
+id = lower { alnum | "_" | "'" } ;
+
+lower = "a" | ... | "z" ;
+
+upper = "A" | ... | "Z" ;
+
+alnum = lower | upper | digit ;
+
+digit = "0" | ... | "9" ;

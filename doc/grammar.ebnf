@@ -109,7 +109,7 @@ case_expr = "{" case_branch { "," case_branch } "}" ;
 
 case_branch = pat "->" expr ;
 
-lambda = pat ":->" expr ;
+lambda = "\\" pat "->" expr ;
 
 let_expr = "let" id "=" expr "in" expr ;
 
