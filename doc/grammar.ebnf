@@ -1,0 +1,179 @@
+(* ============ Program Structure ============ *)
+
+prog = { stmt } ;
+
+stmt = decl newline ;
+
+decl =
+    type_decl
+  | fnc_decl
+  | data_decl ;
+
+
+(* ============ Type Declarations ============ *)
+
+type_decl = id "::" type ;
+
+type = 
+    fn_type "|" type
+  | fn_type ;
+
+fn_type = 
+    atom_type "->" fn_type
+  | atom_type ;
+
+atom_type = 
+    "Int"
+  | "Str"
+  | "Bool"
+  | id
+  | data_id { atom_type }
+  | "[" type "]"
+  | "(" type { "," type } ")" ;
+
+
+(* ============ Function Declarations ============ *)
+
+fnc_decl = 
+    id { pat } "=" expr [ "where" where_block ]
+  | id { pat } guards [ "where" where_block ] ;
+
+guard = "|" expr "=" expr ;
+
+guards = guard { guard } ;
+
+where_block = indent fnc_decl { newline fnc_decl } dedent ;
+
+
+(* ============ Expressions ============ *)
+
+(* 
+Precedence (lowest to highest):
+  1. ||           right associative
+  2. &&           right associative
+  3. == /= < > <= >=   non-associative
+  4. + -          left associative
+  5. * / %        left associative
+  6. - ! (unary)  prefix
+  7. application  left associative
+
+Lower precedence = higher in grammar.
+Left associative = left side recurses to same level.
+Right associative = right side recurses to same level.
+*)
+
+expr = or_expr ;
+
+or_expr = 
+    and_expr "||" or_expr
+  | and_expr ;
+
+and_expr = 
+    cmp_expr "&&" and_expr
+  | cmp_expr ;
+
+cmp_expr = 
+    add_expr cmp_op add_expr
+  | add_expr ;
+
+cmp_op = "==" | "/=" | "<" | ">" | "<=" | ">=" ;
+
+add_expr = 
+    add_expr ("+" | "-") mul_expr
+  | mul_expr ;
+
+mul_expr = 
+    mul_expr ("*" | "/" | "%") unary_expr
+  | unary_expr ;
+
+unary_expr = 
+    ("-" | "!") unary_expr
+  | app_expr ;
+
+app_expr = 
+    app_expr atom
+  | atom ;
+
+atom = 
+    id
+  | data_id
+  | lit
+  | "(" expr ")"
+  | "(" expr "," expr { "," expr } ")"
+  | "[" [ expr { "," expr } ] "]"
+  | case_expr
+  | lambda
+  | let_expr ;
+
+case_expr = "{" case_branch { "," case_branch } "}" ;
+
+case_branch = pat "->" expr ;
+
+lambda = pat ":->" expr ;
+
+let_expr = "let" id "=" expr "in" expr ;
+
+
+(* ============ Data Declarations ============ *)
+
+data_decl = "data" data_id { id } "=" data_con { "|" data_con } ;
+
+data_con = data_id { atom_type } ;
+
+
+(* ============ Patterns ============ *)
+
+pat = 
+    id
+  | lit
+  | "_"
+  | data_id { pat }
+  | "(" pat "," pat { "," pat } ")"
+  | "[" [ pat { "," pat } ] "]" ;
+
+
+(* ============ Identifiers ============ *)
+
+id = lower { alnum | "_" | "'" } ;
+
+data_id = upper { alnum | "_" | "'" } ;
+
+lower = "a" | ... | "z" ;
+
+upper = "A" | ... | "Z" ;
+
+alnum = lower | upper | digit ;
+
+
+(* ============ Literals ============ *)
+
+lit =
+    int_lit
+  | str_lit
+  | bool_lit ;
+
+int_lit = digit { digit } ;
+
+str_lit = "\"" { str_char } "\"" ;
+
+str_char = ~["\"" | "\\"] | "\\" escape_char ;
+
+escape_char = "n" | "t" | "r" | "\\" | "\"" | "'" ;
+
+bool_lit = "true" | "false" ;
+
+digit = "0" | ... | "9" ;
+
+
+(* ============ Comments ============ *)
+
+comment = 
+    "--" { ~newline } newline
+  | "{-" { any } "-}" ;
+
+
+(* ============ Whitespace ============ *)
+
+newline = "\n" | "\r\n" ;
+
+whitespace = " " | "\t" | newline | comment ;
