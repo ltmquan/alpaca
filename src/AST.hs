@@ -25,7 +25,7 @@ module AST
 -- ============ Identifiers ============
 
 newtype Id = Id String
-    deriving (Show, Eq)
+    deriving (Show, Eq, Ord)
 
 
 -- ============ Program Structure ============

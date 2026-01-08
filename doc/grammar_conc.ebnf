@@ -1,0 +1,46 @@
+(*====== Alpaca Pi-Calculus Language ======*)
+
+prog = { stmt } ;
+
+stmt = channel_decl ; (* for now, a statement can only be a channel declaration *)
+
+channel_decl = channel_id "=>" proc ;
+
+proc = seq_proc | conc_proc ;
+
+seq_proc = atom_proc { "|>" proc } ;
+
+conc_proc = { "|" proc } ;
+
+atom_proc = literal | id "<" literal ">" ;
+
+channel_id = [ "!" ] id ;
+
+id = lcase { alphanum | "_" } ;
+
+literal = 
+    int_literal 
+  | char_literal 
+  | str_literal
+  | bool_literal
+  | "$" ;
+
+int_literal = digit { digit } ;
+
+char_literal = "\'" str_char "\'" ;
+
+str_literal = "\"" { str_char } "\"" ;
+
+bool_literal = "true" | "false" ;
+
+str_char = ~["\"" | "\\"] | "\\" escape_char ;
+
+escape_char = "n" | "t" | "r" | "\\" | "\"" | "'" ;
+
+lcase = "a" | ... | "z" ;
+
+upper = "A" | ... | "Z" ;
+
+alphanum = lower | upper | digit ;
+
+digit = "0" | ... | "9" ;

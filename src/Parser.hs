@@ -12,14 +12,12 @@ Megaparsec-based parser for Alpaca.
 
 module Parser
     ( parseProgram
+    , parseExpr
     ) where
 
 import Data.Text (Text)
 import Data.Void (Void)
-import Control.Monad.Combinators.Expr 
-    ( Operator(..)
-    , makeExprParser
-    )
+import Control.Monad.Combinators.Expr (Operator(..), makeExprParser)
 import Text.Megaparsec
     ( Parsec
     , (<|>)
@@ -28,12 +26,12 @@ import Text.Megaparsec
     , eof
     , errorBundlePretty
     , many
-    , option
-    , parse
-    , some
-    , sepBy
     , noneOf
     , notFollowedBy
+    , option
+    , parse
+    , sepBy
+    , some
     , try
     )
 import Text.Megaparsec.Char
@@ -41,6 +39,7 @@ import Text.Megaparsec.Char
     , char
     , lowerChar
     , space1
+    , hspace1
     )
 import qualified Text.Megaparsec.Char.Lexer as L
 
@@ -65,18 +64,19 @@ type Parser = Parsec Void Text
 
 -- ============ Lexer Utilities ============
 
--- | Space consumer that consumes whitespace and comments
-sc :: Parser ()
-sc = L.space
-    space1
-    (L.skipLineComment "--")
-    (L.skipBlockComment "{-" "-}")
+-- | Space consumer that consumes newlines (for between declarations)
+scn :: Parser ()
+scn = L.space space1 (L.skipLineComment "--") (L.skipBlockComment "{-" "-}")
 
--- | Lexeme wrapper (consumes trailing whitespace)
+-- | Space consumer that doesn't consume newlines (for within expressions)
+sc :: Parser ()
+sc = L.space hspace1 (L.skipLineComment "--") (L.skipBlockComment "{-" "-}")
+
+-- | Lexeme wrapper (consumes trailing horizontal whitespace only)
 lexeme :: Parser a -> Parser a
 lexeme = L.lexeme sc
 
--- | Symbol parser (parses exact string and consumes trailing whitespace)
+-- | Symbol parser (consumes trailing horizontal whitespace only)
 symbol :: Text -> Parser Text
 symbol = L.symbol sc
 
@@ -88,23 +88,32 @@ parens = between (symbol "(") (symbol ")")
 brackets :: Parser a -> Parser a
 brackets = between (symbol "[") (symbol "]")
 
+
 -- ============ Program Parser ============
 
 pProgram :: Parser Program
-pProgram = sc *> (Program <$> many pStmt) <* eof
+pProgram = scn *> (Program <$> many pStmt) <* eof
 
--- ============ Statement Parser ============
 pStmt :: Parser Stmt
-pStmt = pId >>= \name -> pTypeDecl name <|> pFuncDecl name
+pStmt = L.nonIndented scn (pId >>= \name -> pTypeDecl name <|> pFuncDecl name)
 
--- ============ Declarations Parser ============
 pTypeDecl :: Id -> Parser Stmt
-pTypeDecl name = symbol "::" *> (TypeDecl name <$> pType)
+pTypeDecl name = symbol "::" *> (TypeDecl name <$> pType) <* scn
 
 pFuncDecl :: Id -> Parser Stmt
-pFuncDecl name = FuncDecl name <$> many pPat <* symbol "=" <*> pExpr
+pFuncDecl name = FuncDecl name <$> many pPat <* symbol "=" <*> pExpr <* scn
 
--- ============ Type Parser ============
+
+-- ============ Identifier Parser ============
+
+pId :: Parser Id
+pId = Id <$> lexeme ((:) <$> lowerChar <*> many idChar)
+  where
+    idChar = alphaNumChar <|> char '_' <|> char '\''
+
+
+-- ============ Type Parsers ============
+
 pType :: Parser Type
 pType = makeExprParser pAtomType typeOpTable
 
@@ -131,13 +140,13 @@ pTypeLit = TLit <$> choice
     ]
 
 pTupleType :: Parser Type
-pTupleType = parens (pType >>= \first -> 
-    option first (mkTuple first))
+pTupleType = parens (pType >>= \first -> option first (mkTuple first))
   where
-    mkTuple first = 
-        TTuple . (first :) <$> some (symbol "," *> pType)
+    mkTuple first = TTuple . (first :) <$> some (symbol "," *> pType)
 
--- ============ Pattern Parser ============
+
+-- ============ Pattern Parsers ============
+
 pPat :: Parser Pat
 pPat = choice
     [ PWild <$ symbol "_"
@@ -148,16 +157,16 @@ pPat = choice
     ]
 
 pTuplePat :: Parser Pat
-pTuplePat = parens (pPat >>= \first -> 
-    option first (mkTuple first))
+pTuplePat = parens (pPat >>= \first -> option first (mkTuple first))
   where
-    mkTuple first = 
-        PTuple . (first :) <$> some (symbol "," *> pPat)
+    mkTuple first = PTuple . (first :) <$> some (symbol "," *> pPat)
 
 pListPat :: Parser Pat
 pListPat = PList <$> brackets (pPat `sepBy` symbol ",")
 
--- ============ Expression Parser ============
+
+-- ============ Expression Parsers ============
+
 pExpr :: Parser Expr
 pExpr = makeExprParser pAppExpr exprOpTable
 
@@ -206,11 +215,8 @@ pTupleExpr = parens (pExpr >>= \first -> option first (mkTuple first))
 pListExpr :: Parser Expr
 pListExpr = EList <$> brackets (pExpr `sepBy` symbol ",")
 
--- ============ Id and Literal Parser ============
-pId :: Parser Id
-pId = Id <$> lexeme ((:) <$> lowerChar <*> many idChar)
-  where
-    idChar = alphaNumChar <|> char '_' <|> char '\''
+
+-- ============ Literal Parsers ============
 
 pLit :: Parser Lit
 pLit = choice
@@ -242,6 +248,7 @@ pStrChar = pEscapeChar <|> noneOf ['\"', '\\']
         , '\'' <$ char '\''
         ]
 
+
 -- ============ Public Interface ============
 
 parseProgram :: Text -> Either String Program
@@ -249,3 +256,9 @@ parseProgram input =
     case parse pProgram "<input>" input of
         Left err -> Left (errorBundlePretty err)
         Right prog -> Right prog
+
+parseExpr :: Text -> Either String Expr
+parseExpr input =
+    case parse (sc *> pExpr <* eof) "<input>" input of
+        Left err -> Left (errorBundlePretty err)
+        Right expr -> Right expr
